@@ -94,7 +94,7 @@ func main() {
 
 		buffer, err := buffer.New(rb,
 			buffer.Retry(`IsNetworkError() && Attempts() <= 2`),
-			buffer.Retry(`ResponseCode() == 429 && Attempts() <= 2`),
+			buffer.Retry(`ResponseCode() == 400 && Attempts() <= 2`),
 			buffer.Retry(`ResponseCode() == 404 && Attempts() <= 2`),
 			buffer.Retry(`ResponseCode() == 502 && Attempts() <= 2`),
 			buffer.Retry(`ResponseCode() == 504 && Attempts() <= 2`))
