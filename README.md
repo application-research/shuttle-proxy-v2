@@ -2,7 +2,7 @@
 
 A smarter proxy for Estuary shuttles.
 
-It does a round robin check of the shuttles and retries the request on other shuttles if the chosen is down.
+It does a roundrobin check of the shuttles and retries the request on other shuttles if the chosen is down.
 
 ## Installation
 ```
