@@ -6,7 +6,7 @@ go mod tidy
 go mod download
 ```
 
-## Env
+## Env (create a `.env` file)
 ```
 LISTEN_ADDR=0.0.0.0:8081
 DB_NAME=
