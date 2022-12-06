@@ -90,17 +90,14 @@ func main() {
 		//// additional rebalancer logic
 		rb, err := roundrobin.NewRebalancer(lb,
 			roundrobin.RebalancerRequestRewriteListener(func(oldReq *http.Request, newReq *http.Request) {
-				//	check if the request is a gateway request (if it is, get the appropriate shuttle).
-				fmt.Println("Rebalancing request from", oldReq.URL, "to", newReq.URL)
-				newReq.URL.Path = oldReq.URL.Path + "/" + newReq.URL.Path
-				fmt.Println("Rebalancing request from", oldReq.URL, "to", newReq.URL)
 			}))
 
 		buffer, err := buffer.New(rb,
 			buffer.Retry(`IsNetworkError() && Attempts() <= 2`),
 			buffer.Retry(`ResponseCode() == 429 && Attempts() <= 2`),
 			buffer.Retry(`ResponseCode() == 404 && Attempts() <= 2`),
-			buffer.Retry(`ResponseCode() == 502 && Attempts() <= 2`))
+			buffer.Retry(`ResponseCode() == 502 && Attempts() <= 2`),
+			buffer.Retry(`ResponseCode() == 504 && Attempts() <= 2`))
 		if err != nil {
 			panic(err)
 		}
