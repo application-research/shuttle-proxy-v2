@@ -66,10 +66,10 @@ func main() {
 
 		buffer, err := buffer.New(lb,
 			buffer.Retry(`IsNetworkError() && Attempts() <= 2`),
-			buffer.Retry(`ResponseCode() == 400 && Attempts() <= 2`),
-			buffer.Retry(`ResponseCode() == 404 && Attempts() <= 2`),
-			buffer.Retry(`ResponseCode() == 502 && Attempts() <= 2`),
-			buffer.Retry(`ResponseCode() == 504 && Attempts() <= 2`))
+			buffer.Retry(`Attempts() <= 2 && ResponseCode() == 400`),
+			buffer.Retry(`Attempts() <= 2 && ResponseCode() == 404`),
+			buffer.Retry(`Attempts() <= 2 && ResponseCode() == 502`),
+			buffer.Retry(`Attempts() <= 2 && ResponseCode() == 502`))
 
 		// 	get preferred endpoints
 		endpoints := proxy.getPreferredEndpoints()
