@@ -7,10 +7,10 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/spf13/viper"
 	"github.com/urfave/cli/v2"
-	"github.com/vulcand/oxy/buffer"
-	"github.com/vulcand/oxy/forward"
-	"github.com/vulcand/oxy/roundrobin"
 	"github.com/vulcand/oxy/testutils"
+	"github.com/vulcand/oxy/v2/buffer"
+	"github.com/vulcand/oxy/v2/forward"
+	"github.com/vulcand/oxy/v2/roundrobin"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"net/http"
@@ -27,7 +27,7 @@ type Proxy struct {
 	DB            *gorm.DB
 	Endpoints     []string
 	LoadBalancer  *roundrobin.RoundRobin
-	Forwarder     *forward.Forwarder
+	Forwarder     *forward.URLForwardingStateListener
 	Server        *http.Server
 }
 
@@ -36,19 +36,6 @@ func main() {
 
 	app := cli.NewApp()
 	app.Version = appVersion
-
-	app.Flags = []cli.Flag{
-		&cli.BoolFlag{
-			Name:    "reshuffle",
-			Aliases: []string{"r"},
-			Usage:   "reshuffle the endpoints",
-			Action: func(context *cli.Context, s bool) error {
-				reshuffle()
-				return nil
-			},
-		},
-	}
-
 	app.Action = func(cctx *cli.Context) error {
 		log.Infof("shuttle proxy version: %s", appVersion)
 
@@ -72,11 +59,17 @@ func main() {
 		e.Use(middleware.CORS())
 
 		// Forwards incoming requests to whatever location URL points to, adds proper forwarding headers
-		fwd, _ := forward.New()
+		fwd := forward.New(false)
 		lb, _ := roundrobin.New(fwd)
 
-		proxy.Forwarder = fwd
 		proxy.LoadBalancer = lb
+
+		buffer, err := buffer.New(lb,
+			buffer.Retry(`IsNetworkError() && Attempts() <= 2`),
+			buffer.Retry(`ResponseCode() == 400 && Attempts() <= 2`),
+			buffer.Retry(`ResponseCode() == 404 && Attempts() <= 2`),
+			buffer.Retry(`ResponseCode() == 502 && Attempts() <= 2`),
+			buffer.Retry(`ResponseCode() == 504 && Attempts() <= 2`))
 
 		// 	get preferred endpoints
 		endpoints := proxy.getPreferredEndpoints()
@@ -87,17 +80,6 @@ func main() {
 			fmt.Println(endpoint)
 		}
 
-		//// additional rebalancer logic
-		rb, err := roundrobin.NewRebalancer(lb,
-			roundrobin.RebalancerRequestRewriteListener(func(oldReq *http.Request, newReq *http.Request) {
-			}))
-
-		buffer, err := buffer.New(rb,
-			buffer.Retry(`IsNetworkError() && Attempts() <= 2`),
-			buffer.Retry(`ResponseCode() == 400 && Attempts() <= 2`),
-			buffer.Retry(`ResponseCode() == 404 && Attempts() <= 2`),
-			buffer.Retry(`ResponseCode() == 502 && Attempts() <= 2`),
-			buffer.Retry(`ResponseCode() == 504 && Attempts() <= 2`))
 		if err != nil {
 			panic(err)
 		}
@@ -113,23 +95,6 @@ func main() {
 	}
 
 	app.RunAndExitOnError()
-}
-
-func reshuffle() {
-	endpoints := proxy.getPreferredEndpoints()
-	proxy.Endpoints = endpoints
-
-	fwd, _ := forward.New()
-	lb, _ := roundrobin.New(fwd)
-
-	for _, endpoint := range endpoints {
-		lb.UpsertServer(testutils.ParseURI(endpoint))
-	}
-
-	proxy.Forwarder = fwd
-	proxy.LoadBalancer = lb
-	proxy.Server.Handler = lb
-
 }
 
 func (p *Proxy) getPreferredEndpoints() []string {
