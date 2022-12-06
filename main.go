@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/spf13/viper"
 	"github.com/urfave/cli/v2"
+	"github.com/vulcand/oxy/buffer"
 	"github.com/vulcand/oxy/forward"
 	"github.com/vulcand/oxy/roundrobin"
 	"github.com/vulcand/oxy/testutils"
@@ -42,7 +43,7 @@ func main() {
 			Aliases: []string{"r"},
 			Usage:   "reshuffle the endpoints",
 			Action: func(context *cli.Context, s bool) error {
-				proxy.reshuffle()
+				reshuffle()
 				return nil
 			},
 		},
@@ -86,7 +87,7 @@ func main() {
 			fmt.Println(endpoint)
 		}
 
-		// additional rebalancer logic
+		//// additional rebalancer logic
 		rb, err := roundrobin.NewRebalancer(lb,
 			roundrobin.RebalancerRequestRewriteListener(func(oldReq *http.Request, newReq *http.Request) {
 				//	check if the request is a gateway request (if it is, get the appropriate shuttle).
@@ -95,13 +96,18 @@ func main() {
 				fmt.Println("Rebalancing request from", oldReq.URL, "to", newReq.URL)
 			}))
 
+		buffer, err := buffer.New(rb,
+			buffer.Retry(`IsNetworkError() && Attempts() <= 2`),
+			buffer.Retry(`ResponseCode() == 429 && Attempts() <= 2`),
+			buffer.Retry(`ResponseCode() == 404 && Attempts() <= 2`),
+			buffer.Retry(`ResponseCode() == 502 && Attempts() <= 2`))
 		if err != nil {
 			panic(err)
 		}
 
 		s := &http.Server{
 			Addr:    viper.GetString("LISTEN_ADDR"),
-			Handler: rb,
+			Handler: buffer,
 		}
 
 		e.Server = s
@@ -112,9 +118,9 @@ func main() {
 	app.RunAndExitOnError()
 }
 
-func (p *Proxy) reshuffle() {
-	endpoints := p.getPreferredEndpoints()
-	p.Endpoints = endpoints
+func reshuffle() {
+	endpoints := proxy.getPreferredEndpoints()
+	proxy.Endpoints = endpoints
 
 	fwd, _ := forward.New()
 	lb, _ := roundrobin.New(fwd)
@@ -123,9 +129,9 @@ func (p *Proxy) reshuffle() {
 		lb.UpsertServer(testutils.ParseURI(endpoint))
 	}
 
-	p.Forwarder = fwd
-	p.LoadBalancer = lb
-	p.Server.Handler = lb
+	proxy.Forwarder = fwd
+	proxy.LoadBalancer = lb
+	proxy.Server.Handler = lb
 
 }
 
