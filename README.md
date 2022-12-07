@@ -4,6 +4,10 @@ A smarter proxy for Estuary shuttles.
 
 It does a roundrobin check of the shuttles and retries the request on other shuttles if the chosen is down.
 
+<p align="center">
+  <img src="https://user-images.githubusercontent.com/4479171/206074170-b45649a0-4f71-4136-a425-52e17af5d048.png?raw=true"/>
+</p>
+
 ## Installation
 ```
 go mod tidy
