@@ -75,7 +75,6 @@ func main() {
 
 		// 	get preferred endpoints
 		endpoints := proxy.getPreferredEndpoints()
-		endpoints = append(endpoints, "shuttle-111.estuary.tech")
 		proxy.Endpoints = endpoints
 
 		for _, endpoint := range endpoints {
