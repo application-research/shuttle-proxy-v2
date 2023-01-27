@@ -69,10 +69,13 @@ func main() {
 			buffer.Retry(`Attempts() < 2 && ResponseCode() == 400`),
 			buffer.Retry(`Attempts() < 2 && ResponseCode() == 404`),
 			buffer.Retry(`Attempts() < 2 && ResponseCode() == 500`),
-			buffer.Retry(`Attempts() < 2 && ResponseCode() == 502`))
+			buffer.Retry(`Attempts() < 2 && ResponseCode() == 502`),
+			buffer.Retry(`Attempts() < 2 && ResponseCode() == 504`),
+		)
 
 		// 	get preferred endpoints
 		endpoints := proxy.getPreferredEndpoints()
+		endpoints = append(endpoints, "shuttle-111.estuary.tech")
 		proxy.Endpoints = endpoints
 
 		for _, endpoint := range endpoints {
